@@ -115,9 +115,28 @@ impl Database {
     }
 
     fn edit_customer(&mut self) {
-        println!("Enter customer name to edit:");
-        let name = read_non_empty_string("Name cannot be empty!");
-        if let Some(customer) = self.customers.get_mut(&name) {
+        println!("Available customers:");
+        if self.customers.is_empty() {
+            println!("No customers found. Please add a customer first!");
+            return;
+        }
+
+        let customer_vec: Vec<(String, Customer)> = self.customers.iter()
+            .map(|(name, customer)| (name.clone(), customer.clone()))
+            .collect();
+        for (i, (name, customer)) in customer_vec.iter().enumerate() {
+            println!("{}. {} (Code: {})", i + 1, name, customer.code);
+        }
+
+        println!("Enter the line number of the customer to edit:");
+        let selection: usize = loop {
+            match read_line().parse::<usize>() {
+                Ok(n) if n > 0 && n <= customer_vec.len() => break n - 1,
+                _ => println!("Please enter a valid number between 1 and {}!", customer_vec.len()),
+            }
+        };
+
+        if let Some((name, customer)) = customer_vec.get(selection) {
             println!("Editing {}. Leave blank to keep current value.", name);
             println!("Current address: {}", customer.address);
             let address = read_optional_non_empty(&customer.address, "Address cannot be empty!");
@@ -132,7 +151,9 @@ impl Database {
             println!("Current code: {}", customer.code);
             let code = read_optional_customer_code(&customer.code);
 
-            *customer = Customer { name: name.clone(), address, phone, contact_person, contact_phone, email, code };
+            let updated_customer = Customer { name: name.clone(), address, phone, contact_person, contact_phone, email, code };
+            self.customers.insert(name.clone(), updated_customer.clone());
+            self.last_invoice_nums.insert(updated_customer.code, *self.last_invoice_nums.get(&customer.code).unwrap_or(&75));
             self.save();
             println!("Customer updated successfully!");
         } else {
@@ -141,9 +162,29 @@ impl Database {
     }
 
     fn remove_customer(&mut self) {
-        println!("Enter customer name to remove:");
-        let name = read_non_empty_string("Name cannot be empty!");
-        if let Some(customer) = self.customers.remove(&name) {
+        println!("Available customers:");
+        if self.customers.is_empty() {
+            println!("No customers found. Please add a customer first!");
+            return;
+        }
+
+        let customer_vec: Vec<(String, Customer)> = self.customers.iter()
+            .map(|(name, customer)| (name.clone(), customer.clone()))
+            .collect();
+        for (i, (name, customer)) in customer_vec.iter().enumerate() {
+            println!("{}. {} (Code: {})", i + 1, name, customer.code);
+        }
+
+        println!("Enter the line number of the customer to remove:");
+        let selection: usize = loop {
+            match read_line().parse::<usize>() {
+                Ok(n) if n > 0 && n <= customer_vec.len() => break n - 1,
+                _ => println!("Please enter a valid number between 1 and {}!", customer_vec.len()),
+            }
+        };
+
+        if let Some((name, customer)) = customer_vec.get(selection) {
+            self.customers.remove(name);
             self.last_invoice_nums.remove(&customer.code);
             self.save();
             println!("Customer removed successfully!");
@@ -445,11 +486,11 @@ impl Database {
                 y_pos -= line_height;
             }
 
-            // Add Total on a separate line, right-justified as a single string
+            // Add Total on a separate line, right-justified as a single string with AU
             y_pos -= 3.0 * line_height; // Extra spacing to ensure a fresh line
-            let total_label_x = Mm(15.0 + (69.0 * 1.0)); // 69 characters to start of "Amount" column
-            let total_text = format!("Total:        ${:>6.2}", invoice.total); // Combine label and amount with 8 spaces
-            add_text(&layer, &total_text, total_label_x, y_pos, &courier_font); // Use Courier for consistency with table
+            let total_line_x = Mm(90.0 - (24.0 * 1.0)); // 24 characters total (6 for "Total:", 8 spaces, 10 for "AU $638.00"), align right edge at 90mm
+            let total_text = format!("Total:        AU ${:>6.2}", invoice.total); // Combine label and amount with 8 spaces and AU
+            add_text(&layer, &total_text, total_line_x, y_pos, &courier_font); // Use Courier for consistency with table
 
             y_pos -= 2.0 * line_height;
 
