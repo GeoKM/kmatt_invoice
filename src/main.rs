@@ -439,11 +439,17 @@ impl Database {
             let table_string = table.to_string();
             let table_lines: Vec<&str> = table_string.lines().collect();
 
-            // Render table lines into PDF using Courier font
+            // Render table lines into PDF using Courier font for alignment
             for line in table_lines {
-                add_text(&layer, line, Mm(15.0), y_pos, &courier_font); // Changed back to courier_font
+                add_text(&layer, line, Mm(15.0), y_pos, &courier_font);
                 y_pos -= line_height;
             }
+
+            // Add Total on a separate line, right-justified as a single string
+            y_pos -= 3.0 * line_height; // Extra spacing to ensure a fresh line
+            let total_label_x = Mm(15.0 + (69.0 * 1.0)); // 69 characters to start of "Amount" column
+            let total_text = format!("Total:        ${:>6.2}", invoice.total); // Combine label and amount with 8 spaces
+            add_text(&layer, &total_text, total_label_x, y_pos, &courier_font); // Use Courier for consistency with table
 
             y_pos -= 2.0 * line_height;
 
