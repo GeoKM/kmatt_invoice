@@ -486,11 +486,10 @@ impl Database {
                 y_pos -= line_height;
             }
 
-            // Add Total on a separate line, right-justified as a single string with AU
+            // Add Total on a separate line, right-justified with separate strings
             y_pos -= 3.0 * line_height; // Extra spacing to ensure a fresh line
-            let total_line_x = Mm(90.0 - (24.0 * 1.0)); // 24 characters total (6 for "Total:", 8 spaces, 10 for "AU $638.00"), align right edge at 90mm
-            let total_text = format!("Total:        AU ${:>6.2}", invoice.total); // Combine label and amount with 8 spaces and AU
-            add_text(&layer, &total_text, total_line_x, y_pos, &courier_font); // Use Courier for consistency with table
+            add_text(&layer, "Total:", Mm(73.0), y_pos, &helvetica_font); // Position "Total:" with 8mm gap before amount
+            add_text(&layer, &format!("AU ${:.2}", invoice.total), Mm(87.0), y_pos, &courier_font); // Right edge at 97mm
 
             y_pos -= 2.0 * line_height;
 
