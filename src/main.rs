@@ -301,7 +301,6 @@ impl Database {
         }
         output.push_str(&format!("\n{:>30} AU ${:.2}\n", "Subtotal:", invoice.subtotal));
         output.push_str(&format!("{:>30} AU $0.00\n", "Tax (0%):"));
-        output.push_str(&format!("{:>30} AU ${:.2}\n\n", "Total:", invoice.total));
         output.push_str(&format!("Notes:\n{}\n\n", invoice.notes));
         output.push_str("Please Pay to by bank transfer to our bank account Commonwealth Bank Tuggeranong.\n");
         output.push_str("Account Name - James Matthews\n");
@@ -440,18 +439,11 @@ impl Database {
             let table_string = table.to_string();
             let table_lines: Vec<&str> = table_string.lines().collect();
 
-            // Render table lines into PDF
+            // Render table lines into PDF using Courier font
             for line in table_lines {
-                add_text(&layer, line, Mm(15.0), y_pos, &courier_font);
+                add_text(&layer, line, Mm(15.0), y_pos, &courier_font); // Changed back to courier_font
                 y_pos -= line_height;
             }
-
-            // Total (Helvetica for "Total:", Courier for amount, aligned with "Amount" column)
-            y_pos -= 3.0 * line_height; // Increased spacing to ensure a fresh line (3x line_height)
-            let total_label_x = Mm(15.0 + (69.0 * 1.0)); // 69 characters to start of "Amount" column
-            let total_amount_x = Mm(15.0 + (75.0 * 1.0)); // 75 characters to right edge of "Amount" column
-            add_text(&layer, "Total:        ", total_label_x, y_pos, &helvetica_font); // 8 spaces after "Total:"
-            add_text(&layer, &format!("${:>6.2}", invoice.total), total_amount_x, y_pos, &courier_font); // Removed "AU ", right-justified at "Amount" column edge
 
             y_pos -= 2.0 * line_height;
 
