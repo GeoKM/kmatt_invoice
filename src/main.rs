@@ -5,6 +5,7 @@ use printpdf::*;
 use std::fs::{File, OpenOptions};
 use serde::{Serialize, Deserialize};
 use std::io::Write;
+use prettytable::{Table, Row, Cell, format};
 
 #[derive(Clone, Serialize, Deserialize)]
 struct Company {
@@ -290,17 +291,17 @@ impl Database {
         ));
         output.push_str(&format!("Payment Terms: Net 30 Days\n"));
         output.push_str(&format!("Due Date: {}\n", invoice.due_date.format("%b %-d, %Y")));
-        output.push_str(&format!("Balance Due: A ${:.2}\n\n", invoice.total));
-        output.push_str("#\tItem\t\t\tQuantity\tRate\t\tAmount\n");
+        output.push_str(&format!("Balance Due: AU ${:.2}\n\n", invoice.total));
+        output.push_str("#\tItem\t\t\tQty\tRate\tAmount\n");
         for (idx, item) in invoice.items.iter().enumerate() {
             output.push_str(&format!(
-                "{:<3}\t{:<30}\t{:>2}\tA ${:>6.2}\tA ${:>6.2}\n",
+                "{:<3}\t{:<30}\t{:>2}\tAU ${:>6.2}\tAU ${:>6.2}\n",
                 idx + 1, item.description, item.quantity, item.rate, item.amount
             ));
         }
-        output.push_str(&format!("\n{:>30} A ${:.2}\n", "Subtotal:", invoice.subtotal));
-        output.push_str(&format!("{:>30} A $0.00\n", "Tax (0%):"));
-        output.push_str(&format!("{:>30} A ${:.2}\n\n", "Total:", invoice.total));
+        output.push_str(&format!("\n{:>30} AU ${:.2}\n", "Subtotal:", invoice.subtotal));
+        output.push_str(&format!("{:>30} AU $0.00\n", "Tax (0%):"));
+        output.push_str(&format!("{:>30} AU ${:.2}\n\n", "Total:", invoice.total));
         output.push_str(&format!("Notes:\n{}\n\n", invoice.notes));
         output.push_str("Please Pay to by bank transfer to our bank account Commonwealth Bank Tuggeranong.\n");
         output.push_str("Account Name - James Matthews\n");
@@ -388,61 +389,70 @@ impl Database {
             y_pos -= line_height;
             add_text(&layer, &format!("Due Date: {}", invoice.due_date.format("%b %d, %Y")), Mm(150.0), y_pos, &helvetica_font);
             y_pos -= line_height;
-            add_text(&layer, &format!("Balance Due: A ${:.2}", invoice.total), Mm(150.0), y_pos, &helvetica_font);
+            add_text(&layer, &format!("Balance Due: AU ${:.2}", invoice.total), Mm(150.0), y_pos, &helvetica_font);
 
             // Display Current Date above Payment Terms
             y_pos -= 2.0 * line_height; // Extra spacing before current date
             add_text(&layer, &format!("(Current Date: {})", invoice.date.format("%b %d, %Y")), Mm(15.0), y_pos, &helvetica_font);
             y_pos -= 2.0 * line_height; // Extra spacing after current date
 
-            // Table Headers with Fixed Column Positions (Courier)
-            let col_positions = [15.0, 25.0, 98.0, 122.0, 161.0]; // Adjusted: Quantity +8mm, Rate +12mm, Amount +6mm
-            let headers = ["#", "Item", "Quantity", "Rate", "Amount"];
-            for (i, header) in headers.iter().enumerate() {
-                let text = match i {
-                    0 => format!("{:>3}", header),    // Right-justify "#"
-                    1 => header.to_string(),          // Left-justify "Item"
-                    2 => format!("{:>10}", header),   // Right-justify "Quantity"
-                    3 => format!("{:>12}", header),   // Right-justify "Rate"
-                    4 => format!("{:>12}", header),   // Right-justify "Amount"
-                    _ => unreachable!(),
-                };
-                add_text(&layer, &text, Mm(col_positions[i]), y_pos, &courier_font);
-            }
-            y_pos -= 2.0; // Space before line
+            // Create the table using prettytable-rs
+            let mut table = Table::new();
+            table.set_format(*format::consts::FORMAT_CLEAN); // Clean format without borders for simplicity
 
-            // Horizontal Line Under Headers
-            layer.set_outline_thickness(0.5);
-            layer.add_line(Line {
-                points: vec![
-                    (Point::new(Mm(15.0), Mm(y_pos)), false),
-                    (Point::new(Mm(195.0), Mm(y_pos)), false),
-                ],
-                is_closed: false,
-            });
-            y_pos -= line_height;
+            // Set column titles
+            table.set_titles(Row::new(vec![
+                Cell::new("#"),
+                Cell::new("Item"),
+                Cell::new("Qty"),
+                Cell::new("Rate"),
+                Cell::new("Amount"),
+            ]));
 
-            // Table Data (Courier, with right-justified Quantity, Rate, Amount, and line numbers)
+            // Add table rows
             for (idx, item) in invoice.items.iter().enumerate() {
-                let item_lines = wrap_text(&item.description, 60); // 60 chars for "Item" column
-                let line_num = idx + 1; // Line number starting from 1
-                for (i, line) in item_lines.iter().enumerate() {
-                    add_text(&layer, &format!("{:>3}", line_num), Mm(col_positions[0]), y_pos, &courier_font); // Right-justify line number
-                    add_text(&layer, line, Mm(col_positions[1]), y_pos, &courier_font); // Left-justify "Item"
+                let line_num = idx + 1;
+                let description_lines = wrap_text(&item.description, 50); // Wrap at 50 characters
+                for (i, line) in description_lines.iter().enumerate() {
                     if i == 0 {
-                        // Right-justify Quantity, Rate, Amount on first line
-                        add_text(&layer, &format!("{:>10}", item.quantity), Mm(col_positions[2]), y_pos, &courier_font);
-                        add_text(&layer, &format!("{:>12}", format!("A ${:.2}", item.rate)), Mm(col_positions[3]), y_pos, &courier_font);
-                        add_text(&layer, &format!("{:>12}", format!("A ${:.2}", item.amount)), Mm(col_positions[4]), y_pos, &courier_font);
+                        // First line: include all columns
+                        table.add_row(Row::new(vec![
+                            Cell::new(&format!("{:>3}", line_num)),
+                            Cell::new(line),
+                            Cell::new(&format!("{:>6}", item.quantity)),
+                            Cell::new(&format!("AU ${:>6.2}", item.rate)),
+                            Cell::new(&format!("AU ${:>6.2}", item.amount)),
+                        ]));
+                    } else {
+                        // Subsequent lines: only Item description
+                        table.add_row(Row::new(vec![
+                            Cell::new(""),
+                            Cell::new(line),
+                            Cell::new(""),
+                            Cell::new(""),
+                            Cell::new(""),
+                        ]));
                     }
-                    y_pos -= line_height;
                 }
-                y_pos -= 2.0; // Gap between items
             }
 
-            // Total (Helvetica for "Total:", Courier for amount, right-justified)
-            add_text(&layer, "Total:", Mm(141.0), y_pos, &helvetica_font); // Adjusted for new column positions
-            add_text(&layer, &format!("{:>12}", format!("A ${:.2}", invoice.total)), Mm(161.0), y_pos, &courier_font);
+            // Convert table to string
+            let table_string = table.to_string();
+            let table_lines: Vec<&str> = table_string.lines().collect();
+
+            // Render table lines into PDF
+            for line in table_lines {
+                add_text(&layer, line, Mm(15.0), y_pos, &courier_font);
+                y_pos -= line_height;
+            }
+
+            // Total (Helvetica for "Total:", Courier for amount, aligned with "Amount" column)
+            y_pos -= 3.0 * line_height; // Increased spacing to ensure a fresh line (3x line_height)
+            let total_label_x = Mm(15.0 + (69.0 * 1.0)); // 69 characters to start of "Amount" column
+            let total_amount_x = Mm(15.0 + (75.0 * 1.0)); // 75 characters to right edge of "Amount" column
+            add_text(&layer, "Total:        ", total_label_x, y_pos, &helvetica_font); // 8 spaces after "Total:"
+            add_text(&layer, &format!("${:>6.2}", invoice.total), total_amount_x, y_pos, &courier_font); // Removed "AU ", right-justified at "Amount" column edge
+
             y_pos -= 2.0 * line_height;
 
             // Notes (Helvetica)
