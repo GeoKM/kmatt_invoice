@@ -2,46 +2,29 @@ mod database;
 mod models;
 mod pdf_generator;
 mod utils;
+mod gui; // Add the gui module
 
-use database::Database;
-use std::io::{self, Write};
+// Removed unused: use database::Database;
+// Removed unused: use std::env;
+// Removed unused: use std::io::{self, Write};
+// Removed unused: use crate::utils; // No longer needed for CLI
 
 fn main() {
-    let mut db = Database::load();
+    // Removed unused args: let args: Vec<String> = env::args().collect();
 
-    loop {
-        println!("\nInvoice Management System");
-        println!("1. Add Customer");
-        println!("2. Edit Customer");
-        println!("3. Remove Customer");
-        println!("4. List Customers");
-        println!("5. Create Invoice");
-        println!("6. List Invoices");
-        println!("7. View Invoice");
-        println!("8. Generate Invoice PDF");
-        println!("9. Mark Invoice Paid");
-        println!("10. Delete Invoice");
-        println!("11. Exit");
-        print!("Choose an option: ");
-        io::stdout().flush().unwrap();
-
-        match utils::read_line().as_str() {
-            "1" => db.add_customer(),
-            "2" => db.edit_customer(),
-            "3" => db.remove_customer(),
-            "4" => db.list_customers(),
-            "5" => db.create_invoice(),
-            "6" => db.list_invoices(),
-            "7" => db.view_invoice(),
-            "8" => db.generate_pdf(),
-            "9" => db.mark_paid(),
-            "10" => db.delete_invoice(),
-            "11" => {
-                db.save();
-                println!("Database saved. Exiting...");
-                break;
-            },
-            _ => println!("Invalid option!"),
+    // Default to GUI unless a specific CLI flag is added later (if needed)
+    // For now, always launch GUI
+    // if args.contains(&"--gui".to_string()) { 
+        // Launch GUI using the new run function
+        println!("Launching GUI...");
+        if let Err(e) = gui::run() { // Changed run_gui() to run()
+            eprintln!("Error running GUI: {}", e);
+            std::process::exit(1);
         }
-    }
+    // } else {
+        // Removed CLI logic block
+    // }
 }
+
+// Removed run_cli function entirely
+
