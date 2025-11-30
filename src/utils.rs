@@ -43,4 +43,3 @@ pub fn wrap_text(text: &str, max_chars: usize) -> Vec<String> {
 // read_customer_code
 // read_optional_customer_code
 // read_date
-

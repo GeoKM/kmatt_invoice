@@ -1,8 +1,8 @@
 mod database;
+mod gui;
 mod models;
 mod pdf_generator;
-mod utils;
-mod gui; // Add the gui module
+mod utils; // Add the gui module
 
 // Removed unused: use database::Database;
 // Removed unused: use std::env;
@@ -14,17 +14,17 @@ fn main() {
 
     // Default to GUI unless a specific CLI flag is added later (if needed)
     // For now, always launch GUI
-    // if args.contains(&"--gui".to_string()) { 
-        // Launch GUI using the new run function
-        println!("Launching GUI...");
-        if let Err(e) = gui::run() { // Changed run_gui() to run()
-            eprintln!("Error running GUI: {}", e);
-            std::process::exit(1);
-        }
+    // if args.contains(&"--gui".to_string()) {
+    // Launch GUI using the new run function
+    println!("Launching GUI...");
+    if let Err(e) = gui::run() {
+        // Changed run_gui() to run()
+        eprintln!("Error running GUI: {}", e);
+        std::process::exit(1);
+    }
     // } else {
-        // Removed CLI logic block
+    // Removed CLI logic block
     // }
 }
 
 // Removed run_cli function entirely
-

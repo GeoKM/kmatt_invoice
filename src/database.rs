@@ -1,10 +1,10 @@
+use crate::models::{Company, Customer, Invoice, InvoiceItem};
+use chrono::{DateTime, Local, NaiveDate, TimeZone, Utc}; // Added TimeZone import
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::{self, File, OpenOptions};
 use std::io;
 use std::path::Path;
-use serde::{Serialize, Deserialize};
-use chrono::{Local, DateTime, NaiveDate, Utc, TimeZone}; // Added TimeZone import
-use crate::models::{Company, Customer, InvoiceItem, Invoice};
 // Removed unused utils import: use crate::utils::*;
 use crate::pdf_generator::generate_pdf;
 
@@ -23,8 +23,7 @@ pub enum DatabaseError {
 }
 
 impl std::fmt::Display for DatabaseError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<
-'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             DatabaseError::Io(e) => write!(f, "I/O Error: {}", e),
             DatabaseError::Serialization(e) => write!(f, "Serialization Error: {}", e),
@@ -56,7 +55,6 @@ impl From<Box<dyn std::error::Error>> for DatabaseError {
         DatabaseError::PdfGeneration(err.to_string())
     }
 }
-
 
 #[derive(Serialize, Deserialize)]
 pub struct Database {
@@ -116,7 +114,7 @@ impl Database {
             let num_to_remove = backups.len() - MAX_BACKUPS;
             for i in 0..num_to_remove {
                 if let Some(filename) = backups[i].file_name().and_then(|n| n.to_str()) {
-                     match fs::remove_file(&backups[i]) {
+                    match fs::remove_file(&backups[i]) {
                         Ok(_) => println!("Removed old backup: {}", filename),
                         Err(e) => eprintln!("Error removing backup {}: {}", filename, e),
                     }
@@ -137,9 +135,7 @@ impl Database {
         }
 
         match File::open(DB_FILENAME) {
-            Ok(file) => {
-                serde_json::from_reader(file).map_err(DatabaseError::from)
-            },
+            Ok(file) => serde_json::from_reader(file).map_err(DatabaseError::from),
             Err(e) if e.kind() == io::ErrorKind::NotFound => {
                 println!("Database file not found, creating new one.");
                 Ok(Database::new())
@@ -162,24 +158,36 @@ impl Database {
 
     pub fn add_customer_gui(&mut self, customer: Customer) -> Result<(), DatabaseError> {
         if customer.name.trim().is_empty() {
-            return Err(DatabaseError::InvalidInput("Customer name cannot be empty.".to_string()));
+            return Err(DatabaseError::InvalidInput(
+                "Customer name cannot be empty.".to_string(),
+            ));
         }
         if self.customers.contains_key(customer.name.trim()) {
-            return Err(DatabaseError::CustomerExists(customer.name.trim().to_string()));
+            return Err(DatabaseError::CustomerExists(
+                customer.name.trim().to_string(),
+            ));
         }
         let code = customer.code.trim().to_uppercase();
         if !(code.len() >= 2 && code.len() <= 3 && code.chars().all(|c| c.is_ascii_alphabetic())) {
-             return Err(DatabaseError::InvalidInput("Customer code must be 2-3 alphabetic characters.".to_string()));
+            return Err(DatabaseError::InvalidInput(
+                "Customer code must be 2-3 alphabetic characters.".to_string(),
+            ));
         }
         if self.customers.values().any(|c| c.code == code) {
-             return Err(DatabaseError::InvalidInput(format!("Customer code \"{}\" is already in use.", code)));
+            return Err(DatabaseError::InvalidInput(format!(
+                "Customer code \"{}\" is already in use.",
+                code
+            )));
         }
 
         let mut validated_customer = customer;
         validated_customer.name = validated_customer.name.trim().to_string();
         validated_customer.code = code;
-        self.customers.insert(validated_customer.name.clone(), validated_customer.clone());
-        self.last_invoice_nums.entry(validated_customer.code.clone()).or_insert(75);
+        self.customers
+            .insert(validated_customer.name.clone(), validated_customer.clone());
+        self.last_invoice_nums
+            .entry(validated_customer.code.clone())
+            .or_insert(75);
 
         self.save()?;
 
@@ -188,15 +196,26 @@ impl Database {
 
     // Removed edit_customer_cli
 
-    pub fn edit_customer_gui(&mut self, original_name: &str, updated_customer: Customer) -> Result<(), DatabaseError> {
+    pub fn edit_customer_gui(
+        &mut self,
+        original_name: &str,
+        updated_customer: Customer,
+    ) -> Result<(), DatabaseError> {
         if updated_customer.name.trim().is_empty() {
-            return Err(DatabaseError::InvalidInput("Customer name cannot be empty.".to_string()));
+            return Err(DatabaseError::InvalidInput(
+                "Customer name cannot be empty.".to_string(),
+            ));
         }
         let new_name = updated_customer.name.trim().to_string();
         let new_code = updated_customer.code.trim().to_uppercase();
 
-        if !(new_code.len() >= 2 && new_code.len() <= 3 && new_code.chars().all(|c| c.is_ascii_alphabetic())) {
-             return Err(DatabaseError::InvalidInput("Customer code must be 2-3 alphabetic characters.".to_string()));
+        if !(new_code.len() >= 2
+            && new_code.len() <= 3
+            && new_code.chars().all(|c| c.is_ascii_alphabetic()))
+        {
+            return Err(DatabaseError::InvalidInput(
+                "Customer code must be 2-3 alphabetic characters.".to_string(),
+            ));
         }
 
         let original_customer = match self.customers.get(original_name) {
@@ -209,8 +228,15 @@ impl Database {
         }
 
         if original_customer.code != new_code {
-            if self.customers.values().any(|c| c.name != original_name && c.code == new_code) {
-                return Err(DatabaseError::InvalidInput(format!("Customer code \"{}\" is already in use by another customer.", new_code)));
+            if self
+                .customers
+                .values()
+                .any(|c| c.name != original_name && c.code == new_code)
+            {
+                return Err(DatabaseError::InvalidInput(format!(
+                    "Customer code \"{}\" is already in use by another customer.",
+                    new_code
+                )));
             }
         }
 
@@ -219,13 +245,18 @@ impl Database {
         final_customer.code = new_code;
 
         self.customers.remove(original_name);
-        self.customers.insert(final_customer.name.clone(), final_customer.clone());
+        self.customers
+            .insert(final_customer.name.clone(), final_customer.clone());
 
         if original_customer.code != final_customer.code {
-            let last_num = self.last_invoice_nums.remove(&original_customer.code).unwrap_or(75);
-            self.last_invoice_nums.insert(final_customer.code.clone(), last_num);
+            let last_num = self
+                .last_invoice_nums
+                .remove(&original_customer.code)
+                .unwrap_or(75);
+            self.last_invoice_nums
+                .insert(final_customer.code.clone(), last_num);
         }
-        
+
         self.save()?;
 
         Ok(())
@@ -242,9 +273,11 @@ impl Database {
 
         self.customers.remove(&customer_name);
         self.last_invoice_nums.remove(customer_code);
-        
+
         // Also remove associated invoices
-        let invoices_to_remove: Vec<String> = self.invoices.iter()
+        let invoices_to_remove: Vec<String> = self
+            .invoices
+            .iter()
             .filter(|(_, inv)| inv.customer.code == customer_code)
             .map(|(num, _)| num.clone())
             .collect();
@@ -266,21 +299,32 @@ impl Database {
     }
 
     fn generate_next_invoice_number(&mut self, customer_code: &str) -> String {
-        let next_num = self.last_invoice_nums.entry(customer_code.to_string()).or_insert(75);
+        let next_num = self
+            .last_invoice_nums
+            .entry(customer_code.to_string())
+            .or_insert(75);
         *next_num += 1;
         format!("{}{}", customer_code, next_num)
     }
 
     // Removed create_invoice_cli
 
-    pub fn create_invoice_gui(&mut self, customer_code: String, items: Vec<InvoiceItem>, notes: String, due_date_naive: NaiveDate) -> Result<Invoice, DatabaseError> {
+    pub fn create_invoice_gui(
+        &mut self,
+        customer_code: String,
+        items: Vec<InvoiceItem>,
+        notes: String,
+        due_date_naive: NaiveDate,
+    ) -> Result<Invoice, DatabaseError> {
         let customer = match self.customers.values().find(|c| c.code == customer_code) {
             Some(c) => c.clone(),
             None => return Err(DatabaseError::CustomerNotFound(customer_code)),
         };
 
         if items.is_empty() {
-            return Err(DatabaseError::InvalidInput("Invoice must have at least one item.".to_string()));
+            return Err(DatabaseError::InvalidInput(
+                "Invoice must have at least one item.".to_string(),
+            ));
         }
 
         let invoice_number = self.generate_next_invoice_number(&customer_code);
@@ -288,9 +332,17 @@ impl Database {
         let date: DateTime<Local> = Local::now();
         // Convert NaiveDate to DateTime<Local> (assuming midnight)
         let due_date: DateTime<Local> = match due_date_naive.and_hms_opt(0, 0, 0) {
-            Some(naive_dt) => Local.from_local_datetime(&naive_dt).single()
-                                .ok_or_else(|| DatabaseError::InvalidInput("Invalid due date conversion.".to_string()))?,
-            None => return Err(DatabaseError::InvalidInput("Invalid due date provided.".to_string())),
+            Some(naive_dt) => Local
+                .from_local_datetime(&naive_dt)
+                .single()
+                .ok_or_else(|| {
+                    DatabaseError::InvalidInput("Invalid due date conversion.".to_string())
+                })?,
+            None => {
+                return Err(DatabaseError::InvalidInput(
+                    "Invalid due date provided.".to_string(),
+                ))
+            }
         };
 
         let mut calculated_items = Vec::new();
@@ -312,7 +364,7 @@ impl Database {
         let invoice = Invoice {
             invoice_number: invoice_number.clone(),
             customer,
-            date, // Use DateTime<Local>
+            date,     // Use DateTime<Local>
             due_date, // Use DateTime<Local>
             items: calculated_items,
             notes,
@@ -321,28 +373,46 @@ impl Database {
             paid: false,
         };
 
-        self.invoices.insert(invoice_number.clone(), invoice.clone());
+        self.invoices
+            .insert(invoice_number.clone(), invoice.clone());
         self.save()?;
 
         Ok(invoice)
     }
 
     // Added function to edit an existing invoice
-    pub fn edit_invoice_gui(&mut self, invoice_number: &str, items: Vec<InvoiceItem>, notes: String, due_date_naive: NaiveDate, paid: bool) -> Result<(), DatabaseError> {
+    pub fn edit_invoice_gui(
+        &mut self,
+        invoice_number: &str,
+        items: Vec<InvoiceItem>,
+        notes: String,
+        due_date_naive: NaiveDate,
+        paid: bool,
+    ) -> Result<(), DatabaseError> {
         let invoice = match self.invoices.get_mut(invoice_number) {
             Some(inv) => inv,
             None => return Err(DatabaseError::InvoiceNotFound(invoice_number.to_string())),
         };
 
         if items.is_empty() {
-            return Err(DatabaseError::InvalidInput("Invoice must have at least one item.".to_string()));
+            return Err(DatabaseError::InvalidInput(
+                "Invoice must have at least one item.".to_string(),
+            ));
         }
 
         // Convert NaiveDate to DateTime<Local> (assuming midnight)
         let due_date: DateTime<Local> = match due_date_naive.and_hms_opt(0, 0, 0) {
-            Some(naive_dt) => Local.from_local_datetime(&naive_dt).single()
-                                .ok_or_else(|| DatabaseError::InvalidInput("Invalid due date conversion.".to_string()))?,
-            None => return Err(DatabaseError::InvalidInput("Invalid due date provided.".to_string())),
+            Some(naive_dt) => Local
+                .from_local_datetime(&naive_dt)
+                .single()
+                .ok_or_else(|| {
+                    DatabaseError::InvalidInput("Invalid due date conversion.".to_string())
+                })?,
+            None => {
+                return Err(DatabaseError::InvalidInput(
+                    "Invalid due date provided.".to_string(),
+                ))
+            }
         };
 
         let mut calculated_items = Vec::new();
@@ -399,18 +469,24 @@ impl Database {
     }
 
     pub fn get_invoices_for_customer(&self, customer_code: &str) -> Vec<Invoice> {
-        let mut invoices: Vec<Invoice> = self.invoices.values()
+        let mut invoices: Vec<Invoice> = self
+            .invoices
+            .values()
             .filter(|inv| inv.customer.code == customer_code)
             .cloned()
             .collect();
         // Sort by date descending (DateTime<Local> comparison works)
-        invoices.sort_by(|a, b| b.date.cmp(&a.date)); 
+        invoices.sort_by(|a, b| b.date.cmp(&a.date));
         invoices
     }
 
     // Removed generate_pdf_cli
 
-    pub fn generate_pdf_gui(&self, invoice_number: &str, filename: &str) -> Result<String, DatabaseError> {
+    pub fn generate_pdf_gui(
+        &self,
+        invoice_number: &str,
+        filename: &str,
+    ) -> Result<String, DatabaseError> {
         match self.invoices.get(invoice_number) {
             Some(invoice) => {
                 // Pass individual company details
@@ -420,7 +496,7 @@ impl Database {
                     &self.company.abn,
                     &self.company.address,
                     &self.company.phone,
-                    filename
+                    filename,
                 )?;
                 Ok(filename.to_string())
             }
@@ -428,4 +504,3 @@ impl Database {
         }
     }
 }
-
